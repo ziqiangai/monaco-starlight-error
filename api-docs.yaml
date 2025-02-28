@@ -1,0 +1,263 @@
+openapi: 3.0.1
+info:
+  title: PS API Documentation
+  description: PS Application API Documentation
+  version: "1.0"
+servers:
+- url: http://localhost:8077/ps
+  description: Generated server url
+tags:
+- name: 图片上传
+  description: 图片上传相关 api
+- name: 工作流
+  description: 工作流相关 api
+paths:
+  /api/workflow/{workflowId}/trigger:
+    post:
+      tags:
+      - 工作流
+      summary: 触发工作流
+      description: 触发指定的工作流
+      operationId: triggerWorkflow
+      parameters:
+      - name: workflowId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: templateId
+        in: query
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RWorkflowResponse'
+  /api/workflow/{workflowId}/trigger/v2:
+    post:
+      tags:
+      - 工作流
+      summary: "触发工作流(SSE版本,服务端推送进度)"
+      description: 触发指定的工作流并返回实时进度，服务端推送
+      operationId: triggerWorkflowV2
+      parameters:
+      - name: workflowId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: templateId
+        in: query
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SseEmitter'
+  /api/image/upload:
+    post:
+      tags:
+      - 图片上传
+      summary: 上传图片
+      description: 上传图片并返回访问URL
+      operationId: uploadImage
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - file
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RString'
+  /api/image/upload/base64:
+    post:
+      tags:
+      - 图片上传
+      summary: 上传Base64编码图片
+      description: "上传Base64编码的图片并返回访问URL,格式必须包含图片后缀类型，例如 data:image/png;base64,xxxxx"
+      operationId: uploadBase64Image
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImgBase64Req'
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RString'
+  /api/image/imgUrlToBase64:
+    post:
+      tags:
+      - 图片上传
+      summary: 图片转base64
+      description: 接受图片URL，验证合法性并返回它的Base64编码
+      operationId: uploadImageFromUrl
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RString'
+  /api/workflow/{generateUuid}/status:
+    get:
+      tags:
+      - 工作流
+      summary: 获取工作流状态
+      description: 获取指定工作流的执行状态
+      operationId: getWorkflowStatus
+      parameters:
+      - name: generateUuid
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RWorkflowResponse'
+  /api/workflow/list:
+    get:
+      tags:
+      - 工作流
+      summary: 获取工作流列表
+      description: 返回所有可用的工作流列表
+      operationId: getWorkflows
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RListWorkflow'
+components:
+  schemas:
+    RWorkflowResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        code:
+          type: integer
+          format: int32
+        data:
+          $ref: '#/components/schemas/WorkflowResponse'
+        message:
+          type: string
+    WorkflowResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        workflowId:
+          type: string
+        genUuid:
+          type: string
+        process:
+          type: number
+          format: double
+        imgs:
+          type: array
+          items:
+            type: string
+    SseEmitter:
+      type: object
+      properties:
+        timeout:
+          type: integer
+          format: int64
+    RString:
+      type: object
+      properties:
+        success:
+          type: boolean
+        code:
+          type: integer
+          format: int32
+        data:
+          type: string
+        message:
+          type: string
+    ImgBase64Req:
+      type: object
+      properties:
+        data:
+          type: string
+    JsonNode:
+      type: object
+      description: 工作流的 JSON Schema 描述，后端会校验该参数
+    RListWorkflow:
+      type: object
+      properties:
+        success:
+          type: boolean
+        code:
+          type: integer
+          format: int32
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workflow'
+        message:
+          type: string
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 工作流的唯一标识符
+        name:
+          type: string
+          description: 工作流的名称
+        templateId:
+          type: string
+          description: 模板Id
+        paramsSchema:
+          $ref: '#/components/schemas/JsonNode'
+        paramsTemplate:
+          $ref: '#/components/schemas/JsonNode'
+        jsonSchema:
+          $ref: '#/components/schemas/JsonNode'
